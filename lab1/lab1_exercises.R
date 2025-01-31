@@ -107,7 +107,7 @@ x<-seq(0,100,1)
 q<- dnorm(x,mean=42, sd=5,log=FALSE)
 lines(x,q)
 lines(x,.4*q)
-q<-dnorm(x,mean=65, sd=5,log=FALSE)
+q<-dnorm(x,mean=80, sd=5,log=FALSE)
 lines(x,.12*q)
 
 plot(ecdf(MPE.new), do.points=FALSE, verticals=TRUE) 
