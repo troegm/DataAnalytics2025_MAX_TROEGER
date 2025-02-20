@@ -1,0 +1,106 @@
+---
+title: "Assignment 2"
+author: "Max Troeger"
+date: "2025-02-21"
+output:
+  pdf_document:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sandwich)
+library(lmtest)
+library(readr)
+library(ggplot2)
+library(class)
+library(caret)
+```
+
+```{r, include=FALSE, echo=FALSE}
+library(readr)
+epi_pop <- read_csv("/Users/maxtroeger/Documents/School/data_analytics/repo/assignment2/epi_results_2024_pop_gdp.csv")
+```
+
+# Variable Distributions
+From the EPI dataset, we derive subsets for the Greater Middle East and the Global West
+```{r}
+middleEast <- subset(epi_pop, region == 'Greater Middle East')
+globalWest <- subset(epi_pop, region == 'Global West')
+```
+## Histograms and Density Lines
+We consider the `RLI.new` variable
+```{r, figures-side, fig.show="hold", out.width="50%"}
+hist(globalWest$RLI.new)
+lines(density(globalWest$RLI.new,bw=1.))
+qqplot(rnorm(250), globalWest$RLI.new)
+qqline(globalWest$RLI.new)
+```
+
+```{r, fig.show="hold", out.width="50%"}
+hist(middleEast$RLI.new)
+lines(density(middleEast$RLI.new,bw=1.))
+qqplot(rnorm(250), middleEast$RLI.new)
+qqline(middleEast$RLI.new)
+```
+
+# Linear Models
+## Initial Models
+```{r, fig.show="hold", out.width="50%"}
+fit1 <- lm(EPI.new~gdp+population,data=globalWest)
+coeftest(fit1)
+ggplot(globalWest, aes(x = gdp, y = EPI.new)) +
+  geom_point() +
+  stat_smooth(method = "lm", col="red")
+
+ggplot(fit1, aes(x = .fitted, y = .resid)) + geom_point()
+```
+```{r, fig.show="hold", out.width="50%"}
+fit2 <- lm(log(TBN.new)~gdp+population,data=middleEast)
+coeftest(fit2)
+ggplot(middleEast, aes(x = gdp, y = log(TBN.new))) +
+  geom_point() +
+  stat_smooth(method = "lm", col="red")
+
+ggplot(fit2, aes(x = .fitted, y = .resid)) + geom_point()
+```
+## Now With Subsetting
+We take the subset of the "Global West" that is classified as "Western Europe":
+```{r}
+westernEurope <- subset(globalWest, country == "Belgium" |
+                                    country == "France" |
+                                    country == "Ireland" |
+                                    country == "Luxembourg" |
+                                    country == "Netherlands" |
+                                    country == "United Kingdom")
+fit3 <- lm(EPI.new~gdp+population,data=westernEurope)
+coeftest(fit3)
+```
+The predictive accuracy of this model is actually worse than including all of the "Global West".
+This is likely because of the great variance in the size of population and gdp because of these countries;
+moreover, including all of the countries in the "Global West" makes the relationship between `EPI.new` and `gdp`/`population` clearer.
+
+# Classification (kNN)
+## Initial Model
+```{r}
+twoRegions <- subset(epi_pop, region == "Global West" | region == "Greater Middle East")
+twoRegions <- subset(twoRegions, select = c(region,EPI.new, RLI.new, APO.new))
+knn.tR <- knn(train = twoRegions[,2:4], test = twoRegions[,2:4],
+                                        cl = twoRegions$region, k = 5)
+confuse.tR <- table(knn.tR, twoRegions$region, dnn=list('predicted','actual'))
+confuse.tR
+```
+We have  (21+15)/38*100=94.74% accuracy.
+
+## Alternate Specification
+```{r}
+twoRegions <- subset(epi_pop, region == "Global West" | region == "Greater Middle East")
+twoRegions <- subset(twoRegions, select = c(region,SPI.new, TBN.new, NXA.new))
+knn.tR <- knn(train = twoRegions[,2:4], test = twoRegions[,2:4],
+                                        cl = twoRegions$region, k = 5)
+confuse.tR <- table(knn.tR, twoRegions$region, dnn=list('predicted','actual'))
+confuse.tR
+(22+15)/38*100
+```
+We have  (22+15)/38*100=97.37% accuracy.
+This model is better because it correctly classifies one more country into the correct region compared to the original specification.
